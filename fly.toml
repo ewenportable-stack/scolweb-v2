@@ -1,0 +1,16 @@
+app = "scolweb-sync"  # renomme si ce nom est déjà pris sur fly.io
+primary_region = "cdg"  # Paris — change si besoin
+
+[build]
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false   # IMPORTANT : ne jamais éteindre la machine
+  auto_start_machines = true
+  min_machines_running = 1     # IMPORTANT : toujours au moins 1 machine active
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1

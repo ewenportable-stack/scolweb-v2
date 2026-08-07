@@ -103,7 +103,7 @@ def login_form(request: Request):
     username = _get_current_user(request)
     if username:
         return RedirectResponse(url="/dashboard")
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse(request, "login.html", {"error": None})
 
 
 @app.post("/login", response_class=HTMLResponse)
@@ -112,7 +112,7 @@ def login_submit(request: Request, username: str = Form(...), password: str = Fo
         scolweb_login(username, password)
     except ValueError as e:
         return templates.TemplateResponse(
-            "login.html", {"request": request, "error": str(e)}, status_code=401
+            request, "login.html", {"error": str(e)}, status_code=401
         )
 
     is_new_user = not user_exists(username)
@@ -155,5 +155,5 @@ def dashboard(request: Request):
     notes = fetch_notes_for_user(username)
 
     return templates.TemplateResponse(
-        "dashboard.html", {"request": request, "events": events, "notes": notes}
+        request, "dashboard.html", {"events": events, "notes": notes}
     )

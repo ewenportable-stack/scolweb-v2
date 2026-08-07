@@ -18,6 +18,36 @@ def _headers(prefer: str | None = None) -> dict:
     return h
 
 
+def user_exists(username: str) -> bool:
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/scolweb_credentials?username=eq.{username}&select=username",
+        headers=_headers(),
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return len(resp.json()) > 0
+
+
+def fetch_planning_for_user(username: str) -> list[dict]:
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/planning_events?username=eq.{username}&order=start_at.asc",
+        headers=_headers(),
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def fetch_notes_for_user(username: str) -> list[dict]:
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/notes?username=eq.{username}&order=date.desc",
+        headers=_headers(),
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
 def upsert_credentials(username: str, encrypted_password: str) -> None:
     resp = requests.post(
         f"{SUPABASE_URL}/rest/v1/scolweb_credentials?on_conflict=username",

@@ -2,18 +2,29 @@ import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from login import login as scolweb_login
 from crypto_utils import encrypt_password
-from supabase_client import upsert_credentials
+from supabase_client import (
+    upsert_credentials,
+    user_exists,
+    fetch_planning_for_user,
+    fetch_notes_for_user,
+)
 from sync import sync_all_users, sync_single_user
+from session_utils import create_session_token, verify_session_token
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("scolweb-sync")
 
 scheduler = BackgroundScheduler()
+templates = Jinja2Templates(directory="templates")
+
+SESSION_COOKIE_NAME = "scolweb_session"
 
 
 def _run_sync_job():
@@ -42,6 +53,8 @@ class RegisterRequest(BaseModel):
     password: str
 
 
+# --- API (utilisée pour les tests / usages programmatiques) ---
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -49,10 +62,6 @@ def health():
 
 @app.post("/register")
 def register(payload: RegisterRequest, background_tasks: BackgroundTasks):
-    """
-    Vérifie les identifiants scolweb, les stocke chiffrés dans Supabase,
-    puis lance une synchro immédiate en tâche de fond (l'utilisateur n'attend pas).
-    """
     try:
         scolweb_login(payload.username, payload.password)
     except ValueError as e:
@@ -64,15 +73,87 @@ def register(payload: RegisterRequest, background_tasks: BackgroundTasks):
     except RuntimeError as e:
         raise HTTPException(status_code=502, detail=str(e))
 
-    # Synchro immédiate en tâche de fond : la réponse HTTP part tout de suite,
-    # le planning arrive dans Supabase quelques secondes après.
     background_tasks.add_task(sync_single_user, payload.username, payload.password)
-
     return {"status": "ok", "message": "Identifiants enregistrés, synchro en cours."}
 
 
 @app.post("/sync-now")
 def sync_now():
-    """Déclenche une synchro immédiate (pour tester manuellement, pas pour un usage fréquent)."""
     result = sync_all_users()
     return result
+
+
+# --- Site web (login par cookie de session) ---
+
+def _get_current_user(request: Request):
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    return verify_session_token(token)
+
+
+@app.get("/", response_class=HTMLResponse)
+def root(request: Request):
+    username = _get_current_user(request)
+    if username:
+        return RedirectResponse(url="/dashboard")
+    return RedirectResponse(url="/login")
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_form(request: Request):
+    username = _get_current_user(request)
+    if username:
+        return RedirectResponse(url="/dashboard")
+    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+
+
+@app.post("/login", response_class=HTMLResponse)
+def login_submit(request: Request, username: str = Form(...), password: str = Form(...)):
+    try:
+        scolweb_login(username, password)
+    except ValueError as e:
+        return templates.TemplateResponse(
+            "login.html", {"request": request, "error": str(e)}, status_code=401
+        )
+
+    is_new_user = not user_exists(username)
+
+    encrypted = encrypt_password(password)
+    upsert_credentials(username, encrypted)
+
+    if is_new_user:
+        # Première fois : synchro immédiate et bloquante, pour que le dashboard
+        # soit déjà rempli quand l'utilisateur arrive dessus.
+        sync_single_user(username, password)
+
+    token = create_session_token(username)
+    response = RedirectResponse(url="/dashboard", status_code=303)
+    response.set_cookie(
+        key=SESSION_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 30,
+    )
+    return response
+
+
+@app.get("/logout")
+def logout():
+    response = RedirectResponse(url="/login")
+    response.delete_cookie(SESSION_COOKIE_NAME)
+    return response
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    username = _get_current_user(request)
+    if not username:
+        return RedirectResponse(url="/login")
+
+    events = fetch_planning_for_user(username)
+    notes = fetch_notes_for_user(username)
+
+    return templates.TemplateResponse(
+        "dashboard.html", {"request": request, "events": events, "notes": notes}
+    )

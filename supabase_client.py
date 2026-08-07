@@ -68,6 +68,33 @@ def upsert_events(username: str, events: list[dict]) -> None:
         raise RuntimeError(f"Erreur Supabase (upsert_events): {resp.status_code} {resp.text}")
 
 
+def upsert_notes(username: str, notes: list[dict]) -> None:
+    rows = [{
+        "username": username,
+        "date": n.get("date"),
+        "cours": n.get("cours"),
+        "epreuve": n.get("epreuve"),
+        "note": n.get("note"),
+        "note_max": n.get("note_max"),
+        "plus_haute": n.get("plus_haute"),
+        "plus_basse": n.get("plus_basse"),
+        "moyenne": n.get("moyenne"),
+        "synced_at": datetime.now(timezone.utc).isoformat(),
+    } for n in notes]
+
+    if not rows:
+        return
+
+    resp = requests.post(
+        f"{SUPABASE_URL}/rest/v1/notes?on_conflict=username,date,cours,epreuve",
+        headers=_headers(prefer="resolution=merge-duplicates"),
+        json=rows,
+        timeout=30,
+    )
+    if resp.status_code >= 300:
+        raise RuntimeError(f"Erreur Supabase (upsert_notes): {resp.status_code} {resp.text}")
+
+
 def mark_sync_result(username: str, error: str | None) -> None:
     resp = requests.patch(
         f"{SUPABASE_URL}/rest/v1/scolweb_credentials?username=eq.{username}",

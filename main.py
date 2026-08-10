@@ -156,12 +156,13 @@ def dashboard(request: Request):
     notes = fetch_notes_for_user(username)
 
     notes_data = enrich_notes(notes)
-    weeks = enrich_planning(events)
+    planning_data = enrich_planning(events)
 
     return templates.TemplateResponse(
         request, "dashboard.html",
         {
-            "weeks": weeks,
+            "weeks": planning_data["weeks"],
+            "months": planning_data["months"],
             "notes": notes_data["notes"],
             "course_stats": notes_data["course_stats"],
             "global_average": notes_data["global_average"],

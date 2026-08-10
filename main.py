@@ -163,6 +163,8 @@ def dashboard(request: Request):
         {
             "weeks": planning_data["weeks"],
             "months": planning_data["months"],
+            "upcoming_important": planning_data["upcoming_important"],
+            "hours_breakdown": planning_data["hours_breakdown"],
             "notes": notes_data["notes"],
             "course_stats": notes_data["course_stats"],
             "global_average": notes_data["global_average"],

@@ -146,27 +146,147 @@
         .course-stat-row .avg.above { color: var(--green-dark); }
         .course-stat-row .avg.below { color: var(--accent-dark); }
 
-        /* --- Planning --- */
-        .day-group { margin-bottom: 1.3rem; }
-        .day-label {
-            font-weight: 700; font-size: 0.85rem; color: var(--purple);
-            margin-bottom: 0.5rem; padding-left: 0.2rem;
-        }
-        .event-card {
-            background: var(--card);
-            border-radius: 12px;
-            padding: 0.85rem 1.1rem;
-            margin-bottom: 0.5rem;
-            box-shadow: 0 3px 12px rgba(46,31,77,0.06);
+        /* --- Planning (grille calendrier) --- */
+        .view-toggle {
             display: flex;
-            gap: 0.9rem;
-            border-left: 4px solid var(--purple-light);
+            justify-content: center;
+            gap: 0.4rem;
+            margin-bottom: 0.8rem;
         }
-        .event-card.exam { border-left-color: var(--accent); }
-        .event-time { font-weight: 700; font-size: 0.85rem; color: var(--purple); min-width: 3.2rem; }
-        .event-body .title { font-weight: 600; font-size: 0.9rem; }
-        .event-body .subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.1rem; }
-        .event-body .room { font-size: 0.74rem; color: var(--text-muted); margin-top: 0.1rem; }
+        .view-toggle button {
+            background: var(--card);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.35rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .view-toggle button.active { background: var(--purple); color: white; border-color: var(--purple); }
+
+        .week-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.8rem;
+        }
+        .week-nav .week-label { font-weight: 700; font-size: 0.95rem; color: var(--purple); }
+        .week-nav button {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            width: 2rem; height: 2rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: var(--purple);
+        }
+        .week-block, .month-block { display: none; }
+        .week-block.active, .month-block.active { display: block; }
+        #planningWeekView, #planningMonthView { display: none; }
+        #planningWeekView.active, #planningMonthView.active { display: block; }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: 2.6rem repeat(7, 1fr);
+            background: var(--card);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(46,31,77,0.08);
+        }
+        .cal-day-header {
+            text-align: center;
+            padding: 0.5rem 0.2rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--purple);
+            border-bottom: 1px solid var(--border);
+            border-left: 1px solid var(--border);
+        }
+        .cal-day-header .num { font-size: 0.95rem; display: block; }
+        .cal-corner { border-bottom: 1px solid var(--border); }
+
+        .cal-hours {
+            display: flex;
+            flex-direction: column;
+        }
+        .cal-hour-label {
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            text-align: right;
+            padding-right: 0.3rem;
+            box-sizing: border-box;
+            height: 48px;
+            border-top: 1px solid var(--border);
+        }
+
+        .cal-day-col {
+            position: relative;
+            border-left: 1px solid var(--border);
+            background-image: repeating-linear-gradient(
+                to bottom,
+                transparent, transparent 47px, var(--border) 47px, var(--border) 48px
+            );
+        }
+        .cal-event {
+            position: absolute;
+            left: 2px; right: 2px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, var(--purple-light), var(--purple-soft));
+            color: white;
+            font-size: 0.62rem;
+            line-height: 1.2;
+            padding: 0.2rem 0.3rem;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(46,31,77,0.25);
+        }
+        .cal-event.exam {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+        }
+        .cal-event .t { font-weight: 700; }
+        .cal-event .n { opacity: 0.9; }
+
+        /* --- Vue mois --- */
+        .month-grid {
+            background: var(--card);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(46,31,77,0.08);
+        }
+        .month-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            border-bottom: 1px solid var(--border);
+        }
+        .month-weekdays div {
+            text-align: center;
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: var(--purple);
+            padding: 0.4rem 0;
+        }
+        .month-week-row {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        .month-day-cell {
+            min-height: 4.2rem;
+            border-left: 1px solid var(--border);
+            border-top: 1px solid var(--border);
+            padding: 0.3rem;
+            font-size: 0.7rem;
+        }
+        .month-day-cell.out { opacity: 0.35; }
+        .month-day-cell .dnum { font-weight: 700; color: var(--purple); }
+        .month-day-title {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            margin-top: 0.15rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .month-day-more { font-size: 0.58rem; color: var(--accent-dark); font-weight: 600; }
 
         .empty { text-align: center; color: var(--text-muted); font-size: 0.88rem; padding: 2.5rem 0; }
     </style>
@@ -188,25 +308,89 @@
 
         <!-- PLANNING -->
         <div id="tab-planning" class="tab-content active">
-            {% if days %}
-                {% for day in days %}
-                <div class="day-group">
-                    <div class="day-label">{{ day.date_label }}</div>
-                    {% for e in day.events %}
-                    <div class="event-card {% if e.is_exam %}exam{% endif %}">
-                        <div class="event-time">{{ e.start_time }}</div>
-                        <div class="event-body">
-                            <div class="title">{{ e.title }}</div>
-                            {% if e.subtitle %}<div class="subtitle">{{ e.subtitle }}</div>{% endif %}
-                            {% if e.room %}<div class="room">{{ e.room }}</div>{% endif %}
+            <div class="view-toggle">
+                <button id="btnViewWeek" class="active" onclick="setPlanningView('week')">Semaine</button>
+                <button id="btnViewMonth" onclick="setPlanningView('month')">Mois</button>
+            </div>
+
+            <!-- VUE SEMAINE -->
+            <div id="planningWeekView" class="active">
+                {% if weeks %}
+                    <div class="week-nav">
+                        <button onclick="changeWeek(-1)">‹</button>
+                        <span class="week-label" id="weekLabel"></span>
+                        <button onclick="changeWeek(1)">›</button>
+                    </div>
+                    {% for week in weeks %}
+                    <div class="week-block {% if loop.first %}active{% endif %}" data-week-index="{{ loop.index0 }}" data-week-label="{{ week.label }}" data-week-start="{{ week.days[0].iso_date }}">
+                        <div class="calendar-grid" style="grid-template-rows: auto repeat({{ week.hour_labels|length }}, 48px);">
+                            <div class="cal-corner"></div>
+                            {% for d in week.days %}
+                            <div class="cal-day-header">{{ d.label }}<span class="num">{{ d.day_num }}</span></div>
+                            {% endfor %}
+
+                            <div class="cal-hours" style="grid-column: 1; grid-row: 2 / span {{ week.hour_labels|length }};">
+                                {% for h in week.hour_labels %}
+                                <div class="cal-hour-label">{{ h }}</div>
+                                {% endfor %}
+                            </div>
+
+                            {% for d in week.days %}
+                            <div class="cal-day-col" style="grid-column: {{ loop.index + 1 }}; grid-row: 2 / span {{ week.hour_labels|length }};">
+                                {% for e in d.events %}
+                                <div class="cal-event {% if e.is_exam %}exam{% endif %}" style="top: {{ e.top_pct }}%; height: {{ e.height_pct }}%;" title="{{ e.title }} — {{ e.subtitle }}">
+                                    <div class="t">{{ e.start_time }} {{ e.title }}</div>
+                                    {% if e.subtitle %}<div class="n">{{ e.subtitle }}</div>{% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endfor %}
                         </div>
                     </div>
                     {% endfor %}
-                </div>
-                {% endfor %}
-            {% else %}
-                <div class="empty">Aucun événement synchronisé pour l'instant.</div>
-            {% endif %}
+                {% else %}
+                    <div class="empty">Aucun événement synchronisé pour l'instant.</div>
+                {% endif %}
+            </div>
+
+            <!-- VUE MOIS -->
+            <div id="planningMonthView">
+                {% if months %}
+                    <div class="week-nav">
+                        <button onclick="changeMonth(-1)">‹</button>
+                        <span class="week-label" id="monthLabel"></span>
+                        <button onclick="changeMonth(1)">›</button>
+                    </div>
+                    {% for month in months %}
+                    <div class="month-block {% if loop.first %}active{% endif %}" data-month-index="{{ loop.index0 }}" data-month-label="{{ month.label }}" data-month-start="{{ month.weeks_grid[0][0].iso_date }}">
+                        <div class="month-grid">
+                            <div class="month-weekdays">
+                                {% for lbl in ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'] %}
+                                <div>{{ lbl }}</div>
+                                {% endfor %}
+                            </div>
+                            {% for week_row in month.weeks_grid %}
+                            <div class="month-week-row">
+                                {% for d in week_row %}
+                                <div class="month-day-cell {% if not d.in_month %}out{% endif %}">
+                                    <div class="dnum">{{ d.day_num }}</div>
+                                    {% for t in d.titles %}
+                                    <div class="month-day-title">{{ t }}</div>
+                                    {% endfor %}
+                                    {% if d.event_count > d.titles|length %}
+                                    <div class="month-day-more">+{{ d.event_count - d.titles|length }}</div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty">Aucun événement synchronisé pour l'instant.</div>
+                {% endif %}
+            </div>
         </div>
 
         <!-- NOTES -->
@@ -284,6 +468,56 @@
             document.getElementById('tab-' + name).classList.add('active');
             btn.classList.add('active');
         }
+
+        let currentWeekIndex = 0;
+        let currentMonthIndex = 0;
+        const weekBlocks = document.querySelectorAll('.week-block');
+        const monthBlocks = document.querySelectorAll('.month-block');
+
+        function setPlanningView(view) {
+            document.getElementById('planningWeekView').classList.toggle('active', view === 'week');
+            document.getElementById('planningMonthView').classList.toggle('active', view === 'month');
+            document.getElementById('btnViewWeek').classList.toggle('active', view === 'week');
+            document.getElementById('btnViewMonth').classList.toggle('active', view === 'month');
+        }
+
+        function renderWeek(index) {
+            if (weekBlocks.length === 0) return;
+            index = Math.max(0, Math.min(weekBlocks.length - 1, index));
+            currentWeekIndex = index;
+            weekBlocks.forEach(el => el.classList.remove('active'));
+            const block = weekBlocks[index];
+            block.classList.add('active');
+            document.getElementById('weekLabel').innerText = block.dataset.weekLabel;
+        }
+        function changeWeek(delta) { renderWeek(currentWeekIndex + delta); }
+
+        function renderMonth(index) {
+            if (monthBlocks.length === 0) return;
+            index = Math.max(0, Math.min(monthBlocks.length - 1, index));
+            currentMonthIndex = index;
+            monthBlocks.forEach(el => el.classList.remove('active'));
+            const block = monthBlocks[index];
+            block.classList.add('active');
+            document.getElementById('monthLabel').innerText = block.dataset.monthLabel;
+        }
+        function changeMonth(delta) { renderMonth(currentMonthIndex + delta); }
+
+        function closestIndexToToday(blocks, dataAttr) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let bestIndex = 0;
+            let bestDiff = Infinity;
+            blocks.forEach((block, i) => {
+                const start = new Date(block.dataset[dataAttr]);
+                const diff = Math.abs(start - today);
+                if (diff < bestDiff) { bestDiff = diff; bestIndex = i; }
+            });
+            return bestIndex;
+        }
+
+        renderWeek(closestIndexToToday(weekBlocks, 'weekStart'));
+        renderMonth(closestIndexToToday(monthBlocks, 'monthStart'));
     </script>
 </body>
 </html>

@@ -3,89 +3,204 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mon espace — Scolweb Sync</title>
+    <title>Mon espace</title>
     <style>
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --purple: #2e1f4d;
+            --purple-soft: #3d2e5c;
+            --purple-light: #6b5a94;
+            --accent: #e8722f;
+            --accent-dark: #b85a24;
+            --bg: #f7f4f9;
+            --card: #ffffff;
+            --text: #201830;
+            --text-muted: #7a7188;
+            --border: #e8e2ee;
+            --green: #4caf50;
+            --green-dark: #2e7d32;
+            --red: #e57373;
+            --red-dark: #c62828;
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #0f1115;
-            color: #e6e6e6;
-            margin: 0;
-            padding: 0 0 3rem 0;
+            background: var(--bg);
+            color: var(--text);
+            padding-bottom: 4rem;
         }
         header {
+            background: var(--purple);
+            color: white;
+            padding: 1.4rem 1.5rem 4rem 1.5rem;
+            position: relative;
+        }
+        header .top-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.2rem 2rem;
-            border-bottom: 1px solid #23262e;
         }
-        header h1 { font-size: 1.1rem; margin: 0; }
-        header a {
-            color: #9aa0aa;
+        header h1 { font-size: 1.15rem; font-weight: 700; }
+        header a.logout {
+            color: rgba(255,255,255,0.75);
             text-decoration: none;
-            font-size: 0.85rem;
-            border: 1px solid #2c303a;
-            padding: 0.4rem 0.9rem;
-            border-radius: 6px;
+            font-size: 0.8rem;
+            border: 1px solid rgba(255,255,255,0.25);
+            padding: 0.35rem 0.8rem;
+            border-radius: 20px;
         }
-        header a:hover { color: #e6e6e6; border-color: #5b8def; }
+        header a.logout:hover { color: white; border-color: white; }
 
-        .container { max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; }
+        .container {
+            max-width: 720px;
+            margin: -2.6rem auto 0 auto;
+            padding: 0 1.2rem;
+        }
 
-        .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+        .tabs {
+            display: flex;
+            background: var(--card);
+            border-radius: 14px;
+            padding: 0.35rem;
+            box-shadow: 0 8px 24px rgba(46,31,77,0.12);
+            margin-bottom: 1.3rem;
+        }
         .tab-btn {
-            padding: 0.6rem 1.2rem;
-            border-radius: 8px;
-            border: 1px solid #2c303a;
-            background: #1a1d24;
-            color: #c7cad1;
+            flex: 1;
+            padding: 0.6rem 0.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.85rem;
+            border-radius: 10px;
             cursor: pointer;
-            font-size: 0.9rem;
         }
-        .tab-btn.active { background: #5b8def; color: white; border-color: #5b8def; }
+        .tab-btn.active { background: var(--purple); color: white; }
 
         .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .tab-content.active { display: block; animation: fadein 0.25s ease; }
+        @keyframes fadein { from { opacity: 0; transform: translateY(4px);} to { opacity: 1; transform: translateY(0);} }
 
-        .card {
-            background: #1a1d24;
-            border: 1px solid #23262e;
-            border-radius: 10px;
-            padding: 1rem 1.3rem;
-            margin-bottom: 0.8rem;
+        /* --- Notes --- */
+        .stat-banner {
+            background: var(--card);
+            border-radius: 14px;
+            padding: 1.1rem 1.3rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 16px rgba(46,31,77,0.06);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .event-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.3rem; }
-        .event-meta { color: #9aa0aa; font-size: 0.82rem; white-space: pre-line; }
+        .stat-banner .big { font-size: 1.8rem; font-weight: 800; color: var(--purple); }
+        .stat-banner .label { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem; }
 
-        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-        th, td { text-align: left; padding: 0.55rem 0.6rem; border-bottom: 1px solid #23262e; }
-        th { color: #9aa0aa; font-weight: 500; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
-        td.note-cell { font-weight: 600; }
-        .note-good { color: #6fd08c; }
-        .note-bad { color: #e57373; }
+        .note-card {
+            background: var(--card);
+            border-radius: 14px;
+            padding: 1rem 1.2rem;
+            margin-bottom: 0.7rem;
+            box-shadow: 0 4px 16px rgba(46,31,77,0.06);
+        }
+        .note-top { display: flex; align-items: flex-start; gap: 1rem; }
+        .note-score { text-align: center; min-width: 3.8rem; }
+        .note-score .val { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+        .note-score .val.above { color: var(--green-dark); }
+        .note-score .val.below { color: var(--accent-dark); }
+        .note-score .scale { font-size: 0.72rem; color: var(--text-muted); }
+        .note-info { flex: 1; min-width: 0; }
+        .note-info .cours { font-weight: 700; font-size: 0.98rem; }
+        .note-info .epreuve { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.1rem; }
+        .note-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 0.4rem; }
+        .note-date { font-size: 0.76rem; color: var(--text-muted); }
+        .badge {
+            font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+            background: rgba(232,114,47,0.15); color: var(--accent-dark);
+            padding: 0.15rem 0.5rem; border-radius: 6px; letter-spacing: 0.02em;
+        }
 
-        .empty { color: #6b7280; font-size: 0.9rem; padding: 1.5rem 0; text-align: center; }
+        .position-bar { position: relative; height: 8px; background: #efeaf5; border-radius: 4px; margin-top: 0.8rem; }
+        .position-bar .fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent-dark)); }
+        .position-bar .fill.above { background: linear-gradient(90deg, #66bb6a, var(--green-dark)); }
+        .position-bar .marker { position: absolute; top: -3px; width: 2px; height: 14px; background: rgba(46,31,77,0.35); }
+        .position-bar .dot { position: absolute; top: -4px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.3); transform: translateX(-50%); }
+        .position-bar .dot.above { background: var(--green-dark); }
+        .position-bar .dot.below { background: var(--accent-dark); }
+        .position-legend { display: flex; justify-content: space-between; font-size: 0.66rem; color: var(--text-muted); margin-top: 0.3rem; }
+
+        /* --- Stats --- */
+        .course-stat-row {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 0.8rem 1.1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(46,31,77,0.05);
+        }
+        .course-stat-row .name { font-size: 0.88rem; font-weight: 600; }
+        .course-stat-row .count { font-size: 0.72rem; color: var(--text-muted); }
+        .course-stat-row .avg { font-weight: 800; font-size: 1.1rem; }
+        .course-stat-row .avg.above { color: var(--green-dark); }
+        .course-stat-row .avg.below { color: var(--accent-dark); }
+
+        /* --- Planning --- */
+        .day-group { margin-bottom: 1.3rem; }
+        .day-label {
+            font-weight: 700; font-size: 0.85rem; color: var(--purple);
+            margin-bottom: 0.5rem; padding-left: 0.2rem;
+        }
+        .event-card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 0.85rem 1.1rem;
+            margin-bottom: 0.5rem;
+            box-shadow: 0 3px 12px rgba(46,31,77,0.06);
+            display: flex;
+            gap: 0.9rem;
+            border-left: 4px solid var(--purple-light);
+        }
+        .event-card.exam { border-left-color: var(--accent); }
+        .event-time { font-weight: 700; font-size: 0.85rem; color: var(--purple); min-width: 3.2rem; }
+        .event-body .title { font-weight: 600; font-size: 0.9rem; }
+        .event-body .subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.1rem; }
+        .event-body .room { font-size: 0.74rem; color: var(--text-muted); margin-top: 0.1rem; }
+
+        .empty { text-align: center; color: var(--text-muted); font-size: 0.88rem; padding: 2.5rem 0; }
     </style>
 </head>
 <body>
     <header>
-        <h1>Mon espace scolweb</h1>
-        <a href="/logout">Déconnexion</a>
+        <div class="top-row">
+            <h1>Mon espace</h1>
+            <a class="logout" href="/logout">Déconnexion</a>
+        </div>
     </header>
 
     <div class="container">
         <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('planning')">Planning</button>
-            <button class="tab-btn" onclick="showTab('notes')">Notes</button>
+            <button class="tab-btn active" onclick="showTab('planning', this)">Planning</button>
+            <button class="tab-btn" onclick="showTab('notes', this)">Notes</button>
+            <button class="tab-btn" onclick="showTab('stats', this)">Stats</button>
         </div>
 
+        <!-- PLANNING -->
         <div id="tab-planning" class="tab-content active">
-            {% if events %}
-                {% for e in events %}
-                <div class="card">
-                    <div class="event-title">{{ e.title.split('\n')[0] if e.title else '(sans titre)' }}</div>
-                    <div class="event-meta">{{ e.start_at }} → {{ e.end_at }}</div>
+            {% if days %}
+                {% for day in days %}
+                <div class="day-group">
+                    <div class="day-label">{{ day.date_label }}</div>
+                    {% for e in day.events %}
+                    <div class="event-card {% if e.is_exam %}exam{% endif %}">
+                        <div class="event-time">{{ e.start_time }}</div>
+                        <div class="event-body">
+                            <div class="title">{{ e.title }}</div>
+                            {% if e.subtitle %}<div class="subtitle">{{ e.subtitle }}</div>{% endif %}
+                            {% if e.room %}<div class="room">{{ e.room }}</div>{% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
                 {% endfor %}
             {% else %}
@@ -93,42 +208,80 @@
             {% endif %}
         </div>
 
+        <!-- NOTES -->
         <div id="tab-notes" class="tab-content">
+            {% if global_average is not none %}
+            <div class="stat-banner">
+                <div>
+                    <div class="big">{{ global_average }}<span style="font-size:1rem;color:var(--text-muted)">/20</span></div>
+                    <div class="label">Moyenne générale</div>
+                </div>
+                <div style="font-size:0.78rem;color:var(--text-muted);text-align:right">{{ notes|length }} note{{ 's' if notes|length > 1 else '' }}</div>
+            </div>
+            {% endif %}
+
             {% if notes %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Cours</th>
-                        <th>Épreuve</th>
-                        <th>Note</th>
-                        <th>Moyenne</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for n in notes %}
-                    <tr>
-                        <td>{{ n.date }}</td>
-                        <td>{{ n.cours }}</td>
-                        <td>{{ n.epreuve }}</td>
-                        <td class="note-cell">{{ n.note }} / {{ n.note_max }}</td>
-                        <td>{{ n.moyenne }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                {% for n in notes %}
+                <div class="note-card">
+                    <div class="note-top">
+                        <div class="note-score">
+                            <div class="val {{ 'above' if n.is_above_avg else 'below' }}">{{ n.note }}</div>
+                            <div class="scale">/ {{ n.scale }}</div>
+                        </div>
+                        <div class="note-info">
+                            <div class="cours">{{ n.cours }}</div>
+                            <div class="epreuve">{{ n.epreuve }}</div>
+                            <div class="note-meta">
+                                <span class="note-date">{{ n.date }}</span>
+                                {% if n.badge %}<span class="badge">{{ n.badge }}</span>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% if n.position_pct is not none and n.min_position_pct is not none and n.max_position_pct is not none %}
+                    <div class="position-bar">
+                        <div class="fill {{ 'above' if n.is_above_avg else '' }}" style="width: {{ n.position_pct }}%"></div>
+                        {% if n.avg_position_pct is not none %}
+                        <div class="marker" style="left: {{ n.avg_position_pct }}%"></div>
+                        {% endif %}
+                        <div class="dot {{ 'above' if n.is_above_avg else 'below' }}" style="left: {{ n.position_pct }}%"></div>
+                    </div>
+                    <div class="position-legend">
+                        <span>Min {{ n.plus_basse }}</span>
+                        <span>Moy {{ n.moyenne }}</span>
+                        <span>Max {{ n.plus_haute }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
             {% else %}
                 <div class="empty">Aucune note synchronisée pour l'instant.</div>
+            {% endif %}
+        </div>
+
+        <!-- STATS -->
+        <div id="tab-stats" class="tab-content">
+            {% if course_stats %}
+                {% for c in course_stats %}
+                <div class="course-stat-row">
+                    <div>
+                        <div class="name">{{ c.cours }}</div>
+                        <div class="count">{{ c.count }} note{{ 's' if c.count > 1 else '' }}</div>
+                    </div>
+                    <div class="avg {{ 'above' if c.average >= 10 else 'below' }}">{{ c.average }}</div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty">Pas encore assez de données pour des stats.</div>
             {% endif %}
         </div>
     </div>
 
     <script>
-        function showTab(name) {
+        function showTab(name, btn) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById('tab-' + name).classList.add('active');
-            event.target.classList.add('active');
+            btn.classList.add('active');
         }
     </script>
 </body>

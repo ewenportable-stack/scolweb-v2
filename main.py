@@ -17,6 +17,7 @@ from supabase_client import (
 )
 from sync import sync_all_users, sync_single_user
 from session_utils import create_session_token, verify_session_token
+from view_helpers import enrich_notes, enrich_planning
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("scolweb-sync")
@@ -154,6 +155,15 @@ def dashboard(request: Request):
     events = fetch_planning_for_user(username)
     notes = fetch_notes_for_user(username)
 
+    notes_data = enrich_notes(notes)
+    days = enrich_planning(events)
+
     return templates.TemplateResponse(
-        request, "dashboard.html", {"events": events, "notes": notes}
+        request, "dashboard.html",
+        {
+            "days": days,
+            "notes": notes_data["notes"],
+            "course_stats": notes_data["course_stats"],
+            "global_average": notes_data["global_average"],
+        }
     )

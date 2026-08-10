@@ -3,69 +3,74 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Connexion — Scolweb Sync</title>
+    <title>Connexion</title>
     <style>
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --purple: #2e1f4d;
+            --purple-soft: #3d2e5c;
+            --accent: #e8722f;
+            --accent-dark: #b85a24;
+            --text-muted: #7a7188;
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #0f1115;
-            color: #e6e6e6;
+            background: linear-gradient(160deg, var(--purple) 0%, var(--purple-soft) 100%);
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            margin: 0;
+            padding: 1.5rem;
         }
         .card {
-            background: #1a1d24;
-            padding: 2.5rem;
-            border-radius: 12px;
+            background: white;
+            border-radius: 18px;
             width: 100%;
             max-width: 380px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            padding: 2.2rem 2rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.35);
         }
-        h1 { font-size: 1.4rem; margin-bottom: 0.3rem; }
-        p.sub { color: #9aa0aa; margin-top: 0; margin-bottom: 1.8rem; font-size: 0.9rem; }
-        label { display: block; font-size: 0.85rem; margin-bottom: 0.4rem; color: #c7cad1; }
+        h1 { font-size: 1.3rem; color: var(--purple); margin-bottom: 0.3rem; }
+        p.sub { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 1.8rem; }
+        label { display: block; font-size: 0.82rem; font-weight: 600; color: #4a4258; margin-bottom: 0.4rem; }
+        .field { margin-bottom: 1.2rem; }
         input {
             width: 100%;
             padding: 0.7rem 0.9rem;
-            border-radius: 8px;
-            border: 1px solid #2c303a;
-            background: #12141a;
-            color: #e6e6e6;
-            margin-bottom: 1.2rem;
+            border-radius: 10px;
+            border: 1.5px solid #e5dfee;
             font-size: 0.95rem;
         }
-        input:focus { outline: none; border-color: #5b8def; }
-        button {
+        input:focus { outline: none; border-color: var(--accent); }
+        .pw-wrap { position: relative; }
+        .pw-wrap input { padding-right: 2.6rem; }
+        .pw-toggle {
+            position: absolute; right: 0.7rem; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; font-size: 0.85rem; color: var(--text-muted);
+        }
+        button[type="submit"] {
             width: 100%;
-            padding: 0.8rem;
-            border-radius: 8px;
+            padding: 0.85rem;
+            border-radius: 10px;
             border: none;
-            background: #5b8def;
+            background: linear-gradient(90deg, var(--accent), var(--accent-dark));
             color: white;
+            font-weight: 700;
             font-size: 0.95rem;
-            font-weight: 600;
             cursor: pointer;
+            margin-top: 0.4rem;
         }
-        button:hover { background: #4a7bd8; }
-        button:disabled { background: #3a4050; cursor: wait; }
+        button[type="submit"]:disabled { opacity: 0.6; cursor: wait; }
         .error {
-            background: #3a1f1f;
-            border: 1px solid #7a3b3b;
-            color: #f2b8b8;
-            padding: 0.7rem 0.9rem;
-            border-radius: 8px;
-            font-size: 0.85rem;
+            background: #fdecea;
+            border: 1px solid #f5c6c0;
+            color: #b5342a;
+            padding: 0.65rem 0.9rem;
+            border-radius: 10px;
+            font-size: 0.83rem;
             margin-bottom: 1.2rem;
         }
-        .loading-note {
-            font-size: 0.8rem;
-            color: #9aa0aa;
-            margin-top: 1rem;
-            text-align: center;
-        }
+        .loading-note { font-size: 0.78rem; color: var(--text-muted); text-align: center; margin-top: 0.9rem; }
     </style>
 </head>
 <body>
@@ -78,12 +83,17 @@
         {% endif %}
 
         <form method="post" action="/login" id="loginForm">
-            <label for="username">Identifiant</label>
-            <input type="text" id="username" name="username" autocomplete="username" required />
-
-            <label for="password">Mot de passe</label>
-            <input type="password" id="password" name="password" autocomplete="current-password" required />
-
+            <div class="field">
+                <label for="username">Identifiant</label>
+                <input type="text" id="username" name="username" autocomplete="username" required />
+            </div>
+            <div class="field">
+                <label for="password">Mot de passe</label>
+                <div class="pw-wrap">
+                    <input type="password" id="password" name="password" autocomplete="current-password" required />
+                    <button type="button" class="pw-toggle" onclick="togglePw()">👁</button>
+                </div>
+            </div>
             <button type="submit" id="submitBtn">Se connecter</button>
         </form>
         <p class="loading-note" id="loadingNote" style="display:none">
@@ -92,6 +102,10 @@
     </div>
 
     <script>
+        function togglePw() {
+            const input = document.getElementById('password');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
         document.getElementById('loginForm').addEventListener('submit', function () {
             document.getElementById('submitBtn').disabled = true;
             document.getElementById('submitBtn').innerText = 'Connexion...';

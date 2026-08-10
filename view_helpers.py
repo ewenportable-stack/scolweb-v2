@@ -1,7 +1,10 @@
 """Transforme les données brutes (Supabase) en structures prêtes pour les templates."""
 import re
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+PARIS_TZ = ZoneInfo("Europe/Paris")
 
 
 def _to_float(val):
@@ -125,47 +128,94 @@ def _format_date_fr(dt: datetime) -> str:
     return f"{_JOURS_FR[dt.weekday()]} {dt.day} {_MOIS_FR[dt.month - 1]}"
 
 
-def enrich_planning(raw_events: list[dict]) -> list[dict]:
-    """Regroupe les événements du planning par jour, triés chronologiquement."""
-    by_day = defaultdict(list)
+GRID_START_HOUR = 7   # début de la grille (7h)
+GRID_END_HOUR = 20    # fin de la grille (20h)
+GRID_TOTAL_MIN = (GRID_END_HOUR - GRID_START_HOUR) * 60
 
+_JOURS_COURT_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
+
+
+def _minutes_from_grid_start(dt: datetime) -> float:
+    return (dt.hour * 60 + dt.minute) - GRID_START_HOUR * 60
+
+
+def enrich_planning(raw_events: list[dict]) -> list[dict]:
+    """Regroupe les événements par semaine, avec position (%) dans une grille
+    horaire pour un rendu en vrai calendrier (colonnes = jours, lignes = heures)."""
+    parsed = []
     for e in raw_events:
         start = e.get("start_at")
+        end = e.get("end_at")
         if not start:
             continue
         try:
-            dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            start_dt = datetime.fromisoformat(start.replace("Z", "+00:00")).astimezone(PARIS_TZ)
+            end_dt = (
+                datetime.fromisoformat(end.replace("Z", "+00:00")).astimezone(PARIS_TZ)
+                if end else start_dt
+            )
         except ValueError:
             continue
 
-        day_key = dt.strftime("%Y-%m-%d")
         title_lines = (e.get("title") or "").split("\n")
         title_lines = [t.strip(" -") for t in title_lines if t.strip(" -")]
 
-        # Heuristique simple : un événement contenant "DS", "Epreuve" ou "Examen"
-        # dans son titre est traité visuellement comme une évaluation.
         is_exam = any(
             kw in (e.get("title") or "").upper() for kw in ["DS", "EXAMEN", "EPREUVE"]
         )
 
-        by_day[day_key].append({
+        parsed.append({
+            "start_dt": start_dt,
+            "end_dt": end_dt,
             "title": title_lines[0] if title_lines else "(sans titre)",
             "subtitle": title_lines[1] if len(title_lines) > 1 else "",
             "room": title_lines[2] if len(title_lines) > 2 else "",
-            "start_time": dt.strftime("%H:%M"),
-            "end_at": e.get("end_at"),
+            "start_time": start_dt.strftime("%H:%M"),
+            "end_time": end_dt.strftime("%H:%M"),
             "is_exam": is_exam,
-            "dt": dt,
         })
 
-    days = []
-    for day_key in sorted(by_day.keys()):
-        events = sorted(by_day[day_key], key=lambda x: x["dt"])
-        day_date = events[0]["dt"]
-        days.append({
-            "date_label": _format_date_fr(day_date),
-            "iso_date": day_key,
-            "events": events,
+    parsed.sort(key=lambda x: x["start_dt"])
+
+    # Regroupe par semaine (année ISO, numéro de semaine)
+    weeks = {}
+    for ev in parsed:
+        iso_year, iso_week, _ = ev["start_dt"].isocalendar()
+        key = (iso_year, iso_week)
+        weeks.setdefault(key, []).append(ev)
+
+    result = []
+    for (iso_year, iso_week), events in sorted(weeks.items()):
+        monday = datetime.fromisocalendar(iso_year, iso_week, 1)
+        days = []
+        for i in range(7):
+            day_date = (monday + timedelta(days=i)).replace(tzinfo=PARIS_TZ)
+            day_events = [
+                ev for ev in events
+                if ev["start_dt"].date() == day_date.date()
+            ]
+            positioned = []
+            for ev in day_events:
+                top_min = max(0, _minutes_from_grid_start(ev["start_dt"]))
+                end_min = min(GRID_TOTAL_MIN, _minutes_from_grid_start(ev["end_dt"]))
+                duration_min = max(20, end_min - top_min)  # hauteur minimale visible
+                positioned.append({
+                    **ev,
+                    "top_pct": round((top_min / GRID_TOTAL_MIN) * 100, 2),
+                    "height_pct": round((duration_min / GRID_TOTAL_MIN) * 100, 2),
+                })
+            days.append({
+                "label": _JOURS_COURT_FR[i],
+                "day_num": day_date.day,
+                "iso_date": day_date.strftime("%Y-%m-%d"),
+                "events": positioned,
+            })
+
+        result.append({
+            "week_key": f"{iso_year}-W{iso_week:02d}",
+            "label": f"{monday.day} {_MOIS_FR[monday.month - 1]} – {(monday + timedelta(days=6)).day} {_MOIS_FR[(monday + timedelta(days=6)).month - 1]}",
+            "days": days,
+            "hour_labels": [f"{h}h" for h in range(GRID_START_HOUR, GRID_END_HOUR)],
         })
 
-    return days
+    return result

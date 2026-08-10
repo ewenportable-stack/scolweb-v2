@@ -134,14 +134,16 @@ GRID_TOTAL_MIN = (GRID_END_HOUR - GRID_START_HOUR) * 60
 
 _JOURS_COURT_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
 
+# Fenêtre par défaut autour d'aujourd'hui si peu/pas d'événements
+WEEKS_BEFORE_TODAY = 2
+WEEKS_AFTER_TODAY = 10
+
 
 def _minutes_from_grid_start(dt: datetime) -> float:
     return (dt.hour * 60 + dt.minute) - GRID_START_HOUR * 60
 
 
-def enrich_planning(raw_events: list[dict]) -> list[dict]:
-    """Regroupe les événements par semaine, avec position (%) dans une grille
-    horaire pour un rendu en vrai calendrier (colonnes = jours, lignes = heures)."""
+def _parse_events(raw_events: list[dict]) -> list[dict]:
     parsed = []
     for e in raw_events:
         start = e.get("start_at")
@@ -176,29 +178,42 @@ def enrich_planning(raw_events: list[dict]) -> list[dict]:
         })
 
     parsed.sort(key=lambda x: x["start_dt"])
+    return parsed
 
-    # Regroupe par semaine (année ISO, numéro de semaine)
-    weeks = {}
+
+def _monday_of(dt: datetime) -> datetime:
+    d = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    return d - timedelta(days=d.weekday())
+
+
+def build_weeks(parsed: list[dict]) -> list[dict]:
+    """Construit une plage CONTINUE de semaines (y compris sans événement),
+    pour que la navigation fonctionne même sur une semaine vide."""
+    today_monday = _monday_of(datetime.now(PARIS_TZ))
+
+    if parsed:
+        range_start = min(_monday_of(parsed[0]["start_dt"]), today_monday - timedelta(weeks=WEEKS_BEFORE_TODAY))
+        range_end = max(_monday_of(parsed[-1]["start_dt"]), today_monday + timedelta(weeks=WEEKS_AFTER_TODAY))
+    else:
+        range_start = today_monday - timedelta(weeks=WEEKS_BEFORE_TODAY)
+        range_end = today_monday + timedelta(weeks=WEEKS_AFTER_TODAY)
+
+    by_day = defaultdict(list)
     for ev in parsed:
-        iso_year, iso_week, _ = ev["start_dt"].isocalendar()
-        key = (iso_year, iso_week)
-        weeks.setdefault(key, []).append(ev)
+        by_day[ev["start_dt"].date()].append(ev)
 
     result = []
-    for (iso_year, iso_week), events in sorted(weeks.items()):
-        monday = datetime.fromisocalendar(iso_year, iso_week, 1)
+    monday = range_start
+    while monday <= range_end:
         days = []
         for i in range(7):
-            day_date = (monday + timedelta(days=i)).replace(tzinfo=PARIS_TZ)
-            day_events = [
-                ev for ev in events
-                if ev["start_dt"].date() == day_date.date()
-            ]
+            day_date = monday + timedelta(days=i)
+            day_events = by_day.get(day_date.date(), [])
             positioned = []
             for ev in day_events:
                 top_min = max(0, _minutes_from_grid_start(ev["start_dt"]))
                 end_min = min(GRID_TOTAL_MIN, _minutes_from_grid_start(ev["end_dt"]))
-                duration_min = max(20, end_min - top_min)  # hauteur minimale visible
+                duration_min = max(20, end_min - top_min)
                 positioned.append({
                     **ev,
                     "top_pct": round((top_min / GRID_TOTAL_MIN) * 100, 2),
@@ -211,11 +226,87 @@ def enrich_planning(raw_events: list[dict]) -> list[dict]:
                 "events": positioned,
             })
 
+        iso_year, iso_week, _ = monday.isocalendar()
+        week_end = monday + timedelta(days=6)
         result.append({
             "week_key": f"{iso_year}-W{iso_week:02d}",
-            "label": f"{monday.day} {_MOIS_FR[monday.month - 1]} – {(monday + timedelta(days=6)).day} {_MOIS_FR[(monday + timedelta(days=6)).month - 1]}",
+            "label": f"{monday.day} {_MOIS_FR[monday.month - 1]} – {week_end.day} {_MOIS_FR[week_end.month - 1]}",
             "days": days,
             "hour_labels": [f"{h}h" for h in range(GRID_START_HOUR, GRID_END_HOUR)],
         })
+        monday += timedelta(weeks=1)
 
     return result
+
+
+def build_months(parsed: list[dict]) -> list[dict]:
+    """Construit une plage continue de mois, chaque mois = grille de semaines
+    (jours avec juste un résumé du nombre d'événements, pas d'horaires détaillés)."""
+    today = datetime.now(PARIS_TZ)
+    today_month_start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    if parsed:
+        first_month = parsed[0]["start_dt"].replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        last_month = parsed[-1]["start_dt"].replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        range_start = min(first_month, today_month_start - timedelta(days=60))
+        range_end = max(last_month, today_month_start + timedelta(days=300))
+    else:
+        range_start = today_month_start - timedelta(days=60)
+        range_end = today_month_start + timedelta(days=300)
+
+    by_day = defaultdict(list)
+    for ev in parsed:
+        by_day[ev["start_dt"].date()].append(ev)
+
+    def _add_month(dt, n):
+        month = dt.month - 1 + n
+        year = dt.year + month // 12
+        month = month % 12 + 1
+        return dt.replace(year=year, month=month, day=1)
+
+    months = []
+    cursor = range_start.replace(day=1)
+    end_marker = range_end.replace(day=1)
+    while cursor <= end_marker:
+        first_of_month = cursor
+        # premier jour affiché = lundi de la semaine contenant le 1er du mois
+        grid_start = _monday_of(first_of_month)
+        next_month = _add_month(first_of_month, 1)
+
+        weeks_grid = []
+        day_cursor = grid_start
+        while True:
+            week_days = []
+            for i in range(7):
+                d = day_cursor + timedelta(days=i)
+                day_events = by_day.get(d.date(), [])
+                week_days.append({
+                    "day_num": d.day,
+                    "iso_date": d.strftime("%Y-%m-%d"),
+                    "in_month": d.month == first_of_month.month,
+                    "event_count": len(day_events),
+                    "titles": [ev["title"] for ev in day_events[:2]],
+                })
+            weeks_grid.append(week_days)
+            day_cursor += timedelta(days=7)
+            if day_cursor >= next_month:
+                break
+
+        months.append({
+            "month_key": first_of_month.strftime("%Y-%m"),
+            "label": f"{_MOIS_FR[first_of_month.month - 1].capitalize()} {first_of_month.year}",
+            "weeks_grid": weeks_grid,
+        })
+        cursor = next_month
+
+    return months
+
+
+def enrich_planning(raw_events: list[dict]) -> dict:
+    """Renvoie {'weeks': [...], 'months': [...]} pour alimenter les deux vues
+    (semaine détaillée avec horaires, mois en aperçu)."""
+    parsed = _parse_events(raw_events)
+    return {
+        "weeks": build_weeks(parsed),
+        "months": build_months(parsed),
+    }

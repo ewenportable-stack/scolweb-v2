@@ -239,7 +239,9 @@
             padding: 0.2rem 0.3rem;
             overflow: hidden;
             box-shadow: 0 2px 6px rgba(46,31,77,0.25);
+            cursor: pointer;
         }
+        .cal-event:hover { filter: brightness(1.08); }
         .cal-event.exam {
             background: linear-gradient(135deg, var(--accent), var(--accent-dark));
         }
@@ -288,7 +290,44 @@
         }
         .month-day-more { font-size: 0.58rem; color: var(--accent-dark); font-weight: 600; }
 
+        .month-day-cell.has-events { cursor: pointer; }
+        .month-day-cell.has-events:hover { background: rgba(46,31,77,0.04); }
+
         .empty { text-align: center; color: var(--text-muted); font-size: 0.88rem; padding: 2.5rem 0; }
+
+        /* --- Modale détail événement --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(32,24,48,0.55);
+            z-index: 100;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-card {
+            background: var(--card);
+            width: 100%;
+            max-width: 480px;
+            border-radius: 20px 20px 0 0;
+            padding: 1.6rem 1.6rem 2.2rem 1.6rem;
+            animation: slideup 0.22s ease;
+        }
+        @media (min-width: 560px) {
+            .modal-overlay { align-items: center; }
+            .modal-card { border-radius: 18px; margin-bottom: 2rem; }
+        }
+        @keyframes slideup { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-close {
+            float: right;
+            background: none; border: none; font-size: 1.3rem; color: var(--text-muted); cursor: pointer;
+        }
+        .modal-time { color: var(--accent-dark); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.4rem; }
+        .modal-title { font-size: 1.15rem; font-weight: 800; color: var(--purple); margin-bottom: 0.9rem; }
+        .modal-row { display: flex; gap: 0.6rem; margin-bottom: 0.7rem; font-size: 0.88rem; }
+        .modal-row .icon { color: var(--text-muted); }
+        .modal-row .val { color: var(--text); line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -338,7 +377,15 @@
                             {% for d in week.days %}
                             <div class="cal-day-col" style="grid-column: {{ loop.index + 1 }}; grid-row: 2 / span {{ week.hour_labels|length }};">
                                 {% for e in d.events %}
-                                <div class="cal-event {% if e.is_exam %}exam{% endif %}" style="top: {{ e.top_pct }}%; height: {{ e.height_pct }}%;" title="{{ e.title }} — {{ e.subtitle }}">
+                                <div class="cal-event {% if e.is_exam %}exam{% endif %}"
+                                     style="top: {{ e.top_pct }}%; height: {{ e.height_pct }}%;"
+                                     onclick="openEventModal(this)"
+                                     data-title="{{ e.title }}"
+                                     data-subtitle="{{ e.subtitle }}"
+                                     data-room="{{ e.room }}"
+                                     data-start="{{ e.start_time }}"
+                                     data-end="{{ e.end_time }}"
+                                     data-date="{{ d.iso_date }}">
                                     <div class="t">{{ e.start_time }} {{ e.title }}</div>
                                     {% if e.subtitle %}<div class="n">{{ e.subtitle }}</div>{% endif %}
                                 </div>
@@ -372,7 +419,8 @@
                             {% for week_row in month.weeks_grid %}
                             <div class="month-week-row">
                                 {% for d in week_row %}
-                                <div class="month-day-cell {% if not d.in_month %}out{% endif %}">
+                                <div class="month-day-cell {% if not d.in_month %}out{% endif %} {% if d.event_count > 0 %}has-events{% endif %}"
+                                     {% if d.event_count > 0 %}onclick="jumpToWeek('{{ d.iso_date }}')"{% endif %}>
                                     <div class="dnum">{{ d.day_num }}</div>
                                     {% for t in d.titles %}
                                     <div class="month-day-title">{{ t }}</div>
@@ -461,6 +509,22 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="eventModal" onclick="if(event.target===this) closeEventModal()">
+        <div class="modal-card">
+            <button class="modal-close" onclick="closeEventModal()">✕</button>
+            <div class="modal-time" id="modalTime"></div>
+            <div class="modal-title" id="modalTitle"></div>
+            <div class="modal-row" id="modalSubtitleRow" style="display:none">
+                <span class="icon">📚</span>
+                <span class="val" id="modalSubtitle"></span>
+            </div>
+            <div class="modal-row" id="modalRoomRow" style="display:none">
+                <span class="icon">📍</span>
+                <span class="val" id="modalRoom"></span>
+            </div>
+        </div>
+    </div>
+
     <script>
         function showTab(name, btn) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -518,6 +582,54 @@
 
         renderWeek(closestIndexToToday(weekBlocks, 'weekStart'));
         renderMonth(closestIndexToToday(monthBlocks, 'monthStart'));
+
+        function openEventModal(el) {
+            const d = el.dataset;
+            document.getElementById('modalTime').innerText = d.start + ' – ' + d.end;
+            document.getElementById('modalTitle').innerText = d.title;
+
+            const subtitleRow = document.getElementById('modalSubtitleRow');
+            if (d.subtitle) {
+                document.getElementById('modalSubtitle').innerText = d.subtitle;
+                subtitleRow.style.display = 'flex';
+            } else {
+                subtitleRow.style.display = 'none';
+            }
+
+            const roomRow = document.getElementById('modalRoomRow');
+            if (d.room) {
+                document.getElementById('modalRoom').innerText = d.room;
+                roomRow.style.display = 'flex';
+            } else {
+                roomRow.style.display = 'none';
+            }
+
+            document.getElementById('eventModal').classList.add('active');
+        }
+
+        function closeEventModal() {
+            document.getElementById('eventModal').classList.remove('active');
+        }
+
+        function jumpToWeek(isoDate) {
+            const target = new Date(isoDate);
+            let bestIndex = 0;
+            let bestDiff = Infinity;
+            weekBlocks.forEach((block, i) => {
+                const start = new Date(block.dataset.weekStart);
+                const end = new Date(start);
+                end.setDate(end.getDate() + 7);
+                if (target >= start && target < end) {
+                    bestIndex = i;
+                    bestDiff = 0;
+                } else if (bestDiff !== 0) {
+                    const diff = Math.abs(start - target);
+                    if (diff < bestDiff) { bestDiff = diff; bestIndex = i; }
+                }
+            });
+            renderWeek(bestIndex);
+            setPlanningView('week');
+        }
     </script>
 </body>
 </html>

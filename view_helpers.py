@@ -143,6 +143,19 @@ def _minutes_from_grid_start(dt: datetime) -> float:
     return (dt.hour * 60 + dt.minute) - GRID_START_HOUR * 60
 
 
+# Couleurs par type d'événement (repris de la classification réelle scolweb/Aurion)
+TYPE_COLORS = {
+    "CM": "#2F3EA8", "TD": "#3FB6C4", "TP": "#E8B23A", "BE": "#6B5B7B",
+    "CTRL": "#C23B32", "PE": "#2E8B4E", "PNE": "#7FCBA0", "SOUT": "#D9784F",
+    "INFO": "#8B3A62", "INFO_OBL": "#8B3A62", "ENTREP": "#B34700",
+    "PROVISOIRE": "#9AA0A6", "RATT": "#6B6B6B", "EVEN": "#4A6FA5",
+}
+
+
+def _color_for_type(t: str) -> str:
+    return TYPE_COLORS.get(t, "#6B6B6B")
+
+
 def _parse_events(raw_events: list[dict]) -> list[dict]:
     parsed = []
     for e in raw_events:
@@ -162,23 +175,111 @@ def _parse_events(raw_events: list[dict]) -> list[dict]:
         title_lines = (e.get("title") or "").split("\n")
         title_lines = [t.strip(" -") for t in title_lines if t.strip(" -")]
 
-        is_exam = any(
-            kw in (e.get("title") or "").upper() for kw in ["DS", "EXAMEN", "EPREUVE"]
-        )
+        # Le vrai type d'événement scolweb (CM/TD/TP/CTRL/SOUT/...) est stocké
+        # tel quel dans class_name — bien plus fiable que deviner via le titre.
+        ev_type = (e.get("class_name") or "").strip().upper()
+        is_exam = ev_type in ("CTRL", "DS")
+        is_soutenance = ev_type == "SOUT"
+
+        subtitle = title_lines[1] if len(title_lines) > 1 else ""
+        # La matière est la partie avant le premier " - " du sous-titre
+        # (le reste étant les groupes/promos, ex: "Asservissement - ECAM4N_PROMO_2627")
+        matiere = subtitle.split(" - ")[0].strip() if subtitle else ""
+
+        duration_hours = max(0, (end_dt - start_dt).total_seconds() / 3600)
 
         parsed.append({
             "start_dt": start_dt,
             "end_dt": end_dt,
             "title": title_lines[0] if title_lines else "(sans titre)",
-            "subtitle": title_lines[1] if len(title_lines) > 1 else "",
+            "subtitle": subtitle,
             "room": title_lines[2] if len(title_lines) > 2 else "",
             "start_time": start_dt.strftime("%H:%M"),
             "end_time": end_dt.strftime("%H:%M"),
+            "type": ev_type,
+            "matiere": matiere or "(non précisé)",
+            "duration_hours": duration_hours,
             "is_exam": is_exam,
+            "is_soutenance": is_soutenance,
         })
 
     parsed.sort(key=lambda x: x["start_dt"])
     return parsed
+
+
+def build_upcoming_important(parsed: list[dict], limit: int = 25) -> list[dict]:
+    """Liste des prochains DS/contrôles/soutenances à venir, triés chronologiquement."""
+    now = datetime.now(PARIS_TZ)
+    upcoming = [
+        ev for ev in parsed
+        if (ev["is_exam"] or ev["is_soutenance"]) and ev["start_dt"] >= now
+    ]
+    upcoming.sort(key=lambda x: x["start_dt"])
+
+    result = []
+    for ev in upcoming[:limit]:
+        result.append({
+            "date_label": _format_date_fr(ev["start_dt"]),
+            "start_time": ev["start_time"],
+            "title": ev["title"],
+            "matiere": ev["matiere"],
+            "kind": "Soutenance" if ev["is_soutenance"] else "Contrôle",
+        })
+    return result
+
+
+def build_hours_breakdown(parsed: list[dict]) -> dict:
+    """Répartition des heures : par semaine/type (pour le graphique en barres)
+    et par matière (pour le classement), + quelques indicateurs clés."""
+    # Ne compte que les créneaux "normaux" (exclut les blocs de plusieurs jours
+    # type ENTREP qui fausseraient les totaux horaires hebdomadaires)
+    real_sessions = [ev for ev in parsed if 0 < ev["duration_hours"] <= 8]
+
+    by_week = defaultdict(lambda: defaultdict(float))
+    week_labels = {}
+    for ev in real_sessions:
+        monday = _monday_of(ev["start_dt"])
+        key = monday.strftime("%Y-%m-%d")
+        week_labels[key] = f"{monday.day}/{monday.month}"
+        by_week[key][ev["type"] or "?"] += ev["duration_hours"]
+
+    all_types = sorted({t for wk in by_week.values() for t in wk.keys()})
+
+    chart_weeks = []
+    for key in sorted(by_week.keys()):
+        by_type = by_week[key]
+        total = sum(by_type.values())
+        chart_weeks.append({
+            "week_label": week_labels[key],
+            "total_hours": round(total, 1),
+            "by_type": [
+                {"type": t, "hours": round(by_type.get(t, 0), 2), "color": _color_for_type(t)}
+                for t in all_types if by_type.get(t, 0) > 0
+            ],
+        })
+
+    by_matiere = defaultdict(float)
+    for ev in real_sessions:
+        by_matiere[ev["matiere"]] += ev["duration_hours"]
+    matiere_stats = sorted(
+        [{"matiere": m, "hours": round(h, 1)} for m, h in by_matiere.items()],
+        key=lambda x: x["hours"], reverse=True
+    )
+
+    total_hours = sum(ev["duration_hours"] for ev in real_sessions)
+    nb_weeks = len(chart_weeks) or 1
+    busiest = max(chart_weeks, key=lambda w: w["total_hours"], default=None)
+
+    return {
+        "chart_weeks": chart_weeks,
+        "matiere_stats": matiere_stats,
+        "legend_types": [{"type": t, "color": _color_for_type(t)} for t in all_types],
+        "total_hours": round(total_hours, 1),
+        "avg_hours_per_week": round(total_hours / nb_weeks, 1),
+        "busiest_week_label": busiest["week_label"] if busiest else "—",
+        "busiest_week_hours": busiest["total_hours"] if busiest else 0,
+        "sessions_count": len(real_sessions),
+    }
 
 
 def _monday_of(dt: datetime) -> datetime:
@@ -303,10 +404,12 @@ def build_months(parsed: list[dict]) -> list[dict]:
 
 
 def enrich_planning(raw_events: list[dict]) -> dict:
-    """Renvoie {'weeks': [...], 'months': [...]} pour alimenter les deux vues
-    (semaine détaillée avec horaires, mois en aperçu)."""
+    """Renvoie {'weeks', 'months', 'upcoming_important', 'hours_breakdown'}
+    pour alimenter les vues calendrier, le bandeau latéral et l'onglet stats horaires."""
     parsed = _parse_events(raw_events)
     return {
         "weeks": build_weeks(parsed),
         "months": build_months(parsed),
+        "upcoming_important": build_upcoming_important(parsed),
+        "hours_breakdown": build_hours_breakdown(parsed),
     }
